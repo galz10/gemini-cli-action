@@ -20,7 +20,7 @@ inputs:
     description: |
       A JSON string to configure the Gemini CLI. This will be written to .gemini/settings.json.
       To enable observability with Google Cloud, include:
-      {"telemetry": {"enabled": true, "target": "gcp"}, "sandbox": false}
+      {"telemetry": {"enabled": false, "target": "gcp"}, "sandbox": false}
     required: false
   version:
     description: |

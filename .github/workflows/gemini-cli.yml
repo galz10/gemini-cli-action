@@ -88,7 +88,7 @@ jobs:
         run: |
           gh pr comment $PR_NUMBER --body "I've received your request and I'm working on it now! 🤖" --repo $REPOSITORY
       - name: Run Gemini
-        uses: google-gemini/gemini-cli-action@main
+        uses: ./
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
           REPOSITORY: ${{ github.repository }}
