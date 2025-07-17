@@ -250,6 +250,12 @@ gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
     --member="${PRINCIPAL_SET}" \
     --condition=None
 
+print_info "Granting vertex permissions..."
+gcloud projects add-iam-policy-binding "${GCP_PROJECT_ID}" \
+    --role="roles/aiplatform.admin" \
+    --member="${PRINCIPAL_SET}" \
+    --condition=None
+
 print_success "Standard permissions granted to Workload Identity Pool"
 
 # Get the full provider name for output

@@ -109,9 +109,11 @@ jobs:
           ADDITIONAL_INSTRUCTIONS: ${{ steps.get_pr.outputs.additional_instructions || steps.get_pr_comment.outputs.additional_instructions }}
           REPOSITORY: ${{ github.repository }}
         with:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
+          GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
           OTLP_GCP_WIF_PROVIDER: ${{ secrets.OTLP_GCP_WIF_PROVIDER }}
           OTLP_GOOGLE_CLOUD_PROJECT: ${{ secrets.OTLP_GOOGLE_CLOUD_PROJECT }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           settings_json: |
             {
               "coreTools": [
@@ -129,7 +131,8 @@ jobs:
                 "enabled": true,
                 "target": "gcp"
               },
-              "sandbox": false
+              "sandbox": false,
+              "selectedAuthType": "vertex-ai"
             }
           prompt: |
             You are an expert code reviewer. You have access to shell commands to gather PR information and perform the review.
