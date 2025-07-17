@@ -1,0 +1,16 @@
+name: Gemini CLI - Random Joke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  random-joke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get a random joke
+        uses: ./
+        with:
+          prompt: "Tell me a random joke"
