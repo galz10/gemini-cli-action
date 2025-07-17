@@ -1,119 +1,111 @@
-name: 🧐 Gemini Pull Request Review
+name: Gemini CLI
 
 on:
-  pull_request:
-    types: [opened]
+  issue_comment:
+    types: [created]
   pull_request_review_comment:
     types: [created]
+  issues:
+    types: [opened, assigned]
   pull_request_review:
     types: [submitted]
-  workflow_dispatch:
-    inputs:
-      pr_number:
-        description: 'PR number to review'
-        required: true
-        type: number
 
 jobs:
-  review-pr:
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'pull_request' && github.event.action == 'opened') ||
-      (github.event_name == 'issue_comment' &&
-        github.event.issue.pull_request &&
-        contains(github.event.comment.body, '@gemini-cli /review') &&
-        (github.event.comment.author_association == 'OWNER' ||
-         github.event.comment.author_association == 'MEMBER' ||
-         github.event.comment.author_association == 'COLLABORATOR')) ||
-      (github.event_name == 'pull_request_review_comment' &&
-        contains(github.event.comment.body, '@gemini-cli /review') &&
-        (github.event.comment.author_association == 'OWNER' ||
-         github.event.comment.author_association == 'MEMBER' ||
-         github.event.comment.author_association == 'COLLABORATOR')) ||
-      (github.event_name == 'pull_request_review' &&
-        contains(github.event.review.body, '@gemini-cli /review') &&
-        (github.event.review.author_association == 'OWNER' ||
-         github.event.review.author_association == 'MEMBER' ||
-         github.event.review.author_association == 'COLLABORATOR'))
+  gemini-cli:
+    if: |
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@gemini-cli') && !contains(github.event.comment.body, '/review') && !contains(github.event.comment.body, '/triage')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@gemini-cli') && !contains(github.event.comment.body, '/review') && !contains(github.event.comment.body, '/triage')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@gemini-cli') && !contains(github.event.comment.body, '/review') && !contains(github.event.comment.body, '/triage'))) && 
+        (
+          github.event.comment.author_association == 'OWNER' ||
+          github.event.comment.author_association == 'MEMBER' ||
+          github.event.comment.author_association == 'COLLABORATOR'
+        )
     timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       id-token: write
       pull-requests: write
       issues: write
     steps:
       - name: Generate GitHub App Token
         id: generate_token
-        if: ${{ vars.APP_ID }}
         uses: actions/create-github-app-token@v1
         with:
-          app-id: ${{ vars.APP_ID }}
+          app-id: ${{ secrets.APP_ID }}
           private-key: ${{ secrets.PRIVATE_KEY }}
+
+      - name: Get PR branch
+        id: get_pr_branch
+        env:
+          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          if [[ "${{ github.event_name }}" == "issue_comment" ]]; then
+            PR_NUMBER=${{ github.event.issue.number }}
+            BRANCH=$(gh pr view "$PR_NUMBER" --json headRefName -q .headRefName --repo "$REPOSITORY")
+            echo "name=$BRANCH" >> $GITHUB_OUTPUT
+          else
+            echo "name=${{ github.event.pull_request.head.ref }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Checkout PR code
         uses: actions/checkout@v4
         with:
-          token: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
+          token: ${{ steps.generate_token.outputs.token }}
+          ref: ${{ steps.get_pr_branch.outputs.name }}
           fetch-depth: 0
 
-      - name: Get PR details (pull_request & workflow_dispatch)
+      - name: Get PR details
         id: get_pr
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
         env:
-          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             PR_NUMBER=${{ github.event.inputs.pr_number }}
+          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
+            PR_NUMBER=${{ github.event.issue.number }}
           else
             PR_NUMBER=${{ github.event.pull_request.number }}
           fi
+
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
           # Get PR details
           PR_DATA=$(gh pr view $PR_NUMBER --json title,body,additions,deletions,changedFiles,baseRefName,headRefName)
           echo "pr_data=$PR_DATA" >> "$GITHUB_OUTPUT"
+
           # Get file changes
           CHANGED_FILES=$(gh pr diff $PR_NUMBER --name-only)
           echo "changed_files<<EOF" >> "$GITHUB_OUTPUT"
           echo "$CHANGED_FILES" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
-      - name: Get PR details (issue_comment)
-        id: get_pr_comment
-        if: github.event_name == 'issue_comment'
+      - name: Acknowledge request
         env:
-          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
-          COMMENT_BODY: ${{ github.event.comment.body }}
+          GITHUB_TOKEN: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.get_pr.outputs.pr_number }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          PR_NUMBER=${{ github.event.issue.number }}
-          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-          # Extract additional instructions from comment
-          ADDITIONAL_INSTRUCTIONS=$(echo "$COMMENT_BODY" | sed 's/.*@gemini-cli \/review//' | xargs)
-          echo "additional_instructions=$ADDITIONAL_INSTRUCTIONS" >> "$GITHUB_OUTPUT"
-          # Get PR details
-          PR_DATA=$(gh pr view $PR_NUMBER --json title,body,additions,deletions,changedFiles,baseRefName,headRefName)
-          echo "pr_data=$PR_DATA" >> "$GITHUB_OUTPUT"
-          # Get file changes
-          CHANGED_FILES=$(gh pr diff $PR_NUMBER --name-only)
-          echo "changed_files<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$CHANGED_FILES" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          gh pr comment $PR_NUMBER --body "I've received your request and I'm working on it now! 🤖" --repo $REPOSITORY
 
-      - name: Run Gemini PR Review
+      - name: Run Gemini
         uses: ./
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
-          PR_NUMBER: ${{ steps.get_pr.outputs.pr_number || steps.get_pr_comment.outputs.pr_number }}
-          PR_DATA: ${{ steps.get_pr.outputs.pr_data || steps.get_pr_comment.outputs.pr_data }}
-          CHANGED_FILES: ${{ steps.get_pr.outputs.changed_files || steps.get_pr_comment.outputs.changed_files }}
-          ADDITIONAL_INSTRUCTIONS: ${{ steps.get_pr.outputs.additional_instructions || steps.get_pr_comment.outputs.additional_instructions }}
           REPOSITORY: ${{ github.repository }}
+          USER_REQUEST: ${{github.event.comment.body}}
+          PR_NUMBER: ${{ steps.get_pr.outputs.pr_number }}
+          ACTION_PATH: ${{ github.action_path }}
         with:
-          GOOGLE_CLOUD_PROJECT: ${{ secrets.GOOGLE_CLOUD_PROJECT }}
-          GOOGLE_CLOUD_LOCATION: ${{ secrets.GOOGLE_CLOUD_LOCATION }}
+          version: 0.1.8-rc.0
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OTLP_GCP_WIF_PROVIDER: ${{ secrets.OTLP_GCP_WIF_PROVIDER }}
           OTLP_GOOGLE_CLOUD_PROJECT: ${{ secrets.OTLP_GOOGLE_CLOUD_PROJECT }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           settings_json: |
             {
               "coreTools": [
@@ -125,82 +117,44 @@ jobs:
                 "run_shell_command(head)",
                 "run_shell_command(tail)",
                 "run_shell_command(grep)",
+                "run_shell_command(git config)",
+                "run_shell_command(git status)",
+                "run_shell_command(git add)",
+                "run_shell_command(git commit)",
+                "run_shell_command(git push)",
+                "run_shell_command(git diff)",
                 "write_file"
               ],
               "telemetry": {
                 "enabled": true,
                 "target": "gcp"
               },
-              "sandbox": false,
-              "selectedAuthType": "vertex-ai"
+              "sandbox": false
             }
           prompt: |
-            You are an expert code reviewer. You have access to shell commands to gather PR information and perform the review.
-            
-            IMPORTANT: Use the available shell commands to gather information. Do not ask for information to be provided.
-            
-            Start by running these commands to gather the required data:
-            1. Run: echo "$PR_DATA" to get PR details (JSON format)
-            2. Run: echo "$CHANGED_FILES" to get the list of changed files
-            3. Run: echo "$PR_NUMBER" to get the PR number
-            4. Run: echo "$ADDITIONAL_INSTRUCTIONS" to see any specific review instructions from the user
-            5. Run: gh pr diff $PR_NUMBER to see the full diff
-            6. For any specific files, use: cat filename, head -50 filename, or tail -50 filename
-            
-            Additional Review Instructions:
-            If ADDITIONAL_INSTRUCTIONS contains text, prioritize those specific areas or focus points in your review.
-            Common instruction examples: "focus on security", "check performance", "review error handling", "check for breaking changes"
-            
-            Once you have the information, provide a comprehensive code review by:
-            1. Writing your review to a file: write_file("review.md", "<your detailed review feedback here>")
-            2. Posting the review: gh pr comment $PR_NUMBER --body-file review.md --repo $REPOSITORY
-            
-            Review Areas:
-            - **Security**: Authentication, authorization, input validation, data sanitization
-            - **Performance**: Algorithms, database queries, caching, resource usage
-            - **Reliability**: Error handling, logging, testing coverage, edge cases
-            - **Maintainability**: Code structure, documentation, naming conventions
-            - **Functionality**: Logic correctness, requirements fulfillment
-            
-            Output Format:
-            Structure your review using this exact format with markdown:
-            
-            ## 📋 Review Summary
-            Provide a brief 2-3 sentence overview of the PR and overall assessment.
-            
-            ## 🔍 General Feedback
-            - List general observations about code quality
-            - Mention overall patterns or architectural decisions
-            - Highlight positive aspects of the implementation
-            - Note any recurring themes across files
-            
-            ## 🎯 Specific Feedback
-            Only include sections below that have actual issues. If there are no issues in a priority category, omit that entire section.
-            
-            ### 🔴 Critical
-            (Only include this section if there are critical issues)
-            Issues that must be addressed before merging (security vulnerabilities, breaking changes, major bugs):
-            - **File: `filename:line`** - Description of critical issue with specific recommendation
-            
-            ### 🟡 High
-            (Only include this section if there are high priority issues)
-            Important issues that should be addressed (performance problems, design flaws, significant bugs):
-            - **File: `filename:line`** - Description of high priority issue with suggested fix
-            
-            ### 🟢 Medium
-            (Only include this section if there are medium priority issues)
-            Improvements that would enhance code quality (style issues, minor optimizations, better practices):
-            - **File: `filename:line`** - Description of medium priority improvement
-            
-            ### 🔵 Low
-            (Only include this section if there are suggestions)
-            Nice-to-have improvements and suggestions (documentation, naming, minor refactoring):
-            - **File: `filename:line`** - Description of suggestion or enhancement
-            
-            **Note**: If no specific issues are found in any category, simply state "No specific issues identified in this review."
-            
-            ## ✅ Highlights
-            (Only include this section if there are positive aspects to highlight)
-            - Mention specific good practices or implementations
-            - Acknowledge well-written code sections
-            - Note improvements from previous versions
+            IMPORTANT: Use the available shell commands to gather information if needed. Do not ask for information to be provided.
+
+            **Workflow Modes:**
+
+            1.  **Execution Mode (Default):**
+                *   Analyze the `$USER_REQUEST` and perform the required actions.
+
+            2.  **Planning Mode:**
+                *   **Trigger:** If the `$USER_REQUEST` is asking for you to plan some implementation.
+                *   **Action:**
+                    1.  Create a step-by-step plan. Give it a unique ID like `plan#1`, `plan#2`, etc.
+                    2.  Post the plan as a PR comment. The comment must end with instructions on how to approve it, for example: `To approve this plan, please reply with: @gemini-cli plan#1 approved`
+                    3.  **STOP** and wait for approval. Do not execute the plan yet.
+
+            3.  **Approval Mode:**
+                *   **Trigger:** If the `$USER_REQUEST` includes "approved" and a plan ID (e.g., `@gemini-cli plan#1 approved`).
+                *   **Action:**
+                    1.  The PR comments are available in the `$PR_COMMENTS` environment variable.
+                    2.  Find the comment containing the original plan that matches the approved plan ID.
+                    3.  Execute the steps outlined in that plan.
+
+            **Execution Steps:**
+            *   Start by gathering data: `echo "$USER_REQUEST"`, `echo "$REPOSITORY"`, `echo "$PR_NUMBER"`.
+            *   For files, use `cat`, `head`, or `tail`.
+            *   If you make code changes, use `git add .`, `git commit -m "..."`, and `git push`.
+            *   Write your final response to `response.md` and post it with `gh pr comment $PR_NUMBER --body-file response.md`.
