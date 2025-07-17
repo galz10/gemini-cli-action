@@ -133,7 +133,9 @@ jobs:
               3. For any specific files, use: cat filename, head -50 filename, or tail -50 filename
 
             If the $USER_REQUEST is asking to generate code or modify code, create a plan on what you will do to answer the request, IMPORTANT: Do not implement without approval from the user. 
-            Make sure the plan at the bottom has text letting the user know how to approve the plan, for example @gemini-cli plan#1 approved.
+            Make sure the plan at the bottom has text letting the user know how to approve the plan, for example @gemini-cli plan#1 approved. 
+            To find the plan-id number for this new plan run `gh pr view $PR_NUMBER --json comments -q '.comments[] | .body'` and find the last comment with `plan-id: number`. 
+            The plan-id for the new plan should be +1 from the plan-id of the last comment if no comment exists with plan-id the plan-id should be 1.
             
             The plan will follow this format in markdown :
               plan-id: number 
