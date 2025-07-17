@@ -87,33 +87,6 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           gh pr comment $PR_NUMBER --body "I've received your request and I'm working on it now! 🤖" --repo $REPOSITORY
-      - name: Determine Workflow
-        id: determine_workflow
-        run: |
-          if [[ "${{ github.event.comment.body }}" == *"/plan"* ]]; then
-            echo "GEMINI_PROMPT<<EOF" >> $GITHUB_ENV
-            echo "You are a senior software engineer who specializes in planning. Your task is to create a detailed, step-by-step plan to address the user's request." >> $GITHUB_ENV
-            echo "The user's request is: ${{ github.event.comment.body }}" >> $GITHUB_ENV
-            echo "Analyze the request and the provided context, then formulate a plan. The plan should be a numbered list of actions to be taken." >> $GITHUB_ENV
-            echo "Present the plan in a clear and concise manner. After you present the plan, ask for approval to proceed." >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-          else
-            echo "GEMINI_PROMPT<<EOF" >> $GITHUB_ENV
-            echo "IMPORTANT: Use the available shell commands to gather information if needed. Do not ask for information to be provided." >> $GITHUB_ENV
-            echo "Start by running these commands to gather the required data:" >> $GITHUB_ENV
-            echo "  1. Run: echo \"$USER_REQUEST\" to get the user request" >> $GITHUB_ENV
-            echo "  2. Run: echo \"$REPOSITORY\" to get the repository" >> $GITHUB_ENV
-            echo "  3. Run: echo \"$PR_NUMBER\" to get the PR number" >> $GITHUB_ENV
-            echo "  4. For any specific files, use: cat filename, head -50 filename, or tail -50 filename" >> $GITHUB_ENV
-            echo "Answer the \$USER_REQUEST;" >> $GITHUB_ENV
-            echo "Once you are ready to provide a response, follow the steps bellow to do so:" >> $GITHUB_ENV
-            echo "1. If you have made any modifications to files, add them using 'git add .' IMPORTANT: do not add response.md file." >> $GITHUB_ENV
-            echo "2. Commit the changes with a descriptive message using 'git commit -m \"your commit message\"'." >> $GITHUB_ENV
-            echo "3. Push the changes to the branch using 'git push'." >> $GITHUB_ENV
-            echo "4. Writing your response to a file: write_file(\"response.md\", \"<your response here>\")" >> $GITHUB_ENV
-            echo "5. Posting the response: gh pr comment \$PR_NUMBER --body-file response.md --repo \$REPOSITORY" >> $GITHUB_ENV
-            echo "EOF" >> $GITHUB_ENV
-          fi
       - name: Run Gemini
         uses: google-gemini/gemini-cli-action@main
         env:
@@ -150,4 +123,35 @@ jobs:
               },
               "sandbox": false
             }
-          prompt: ${{ env.GEMINI_PROMPT }}
+          prompt: |
+            IMPORTANT: Use the available shell commands to gather information if needed. Do not ask for information to be
+            provided.
+            Start by running these commands to gather the required data:
+              1. Run: echo "$USER_REQUEST" to get the user request
+              2. Run: echo "$REPOSITORY to get the repository
+              3. Run: echo "$PR_NUMBER" to get the PR number
+              3. For any specific files, use: cat filename, head -50 filename, or tail -50 filename
+
+            If the $USER_REQUEST is asking to generate code or modify code, create a plan on what you will do to answer the request, IMPORTANT: Do not implement without approval from the user. 
+            Make sure the plan at the bottom has text letting the user know how to approve the plan, for example @gemini-cli plan#1 approved.
+            The plan will follow this format in markdown :
+              plan-id: number 
+              Plan Title :
+              ...
+              How to approve the plan 
+            
+            If the $USER_REQUEST is a plan approval, for example @gemini-cli plan#1 approved, you will need to get the plan from the PR comments.
+            To do so, you will need to get the comments from the PR and find the comment with the plan id.
+            1. Get the plan id from the user request. For example, if the user request is "@gemini-cli plan#1 approved", the plan id is 1.
+            2. Get the comments from the PR by running the following command: `gh pr view $PR_NUMBER --json comments -q '.comments[] | .body'`
+            3. Find the comment that contains `plan-id: 1` (using the plan id from the previous step).
+            4. Once you have the plan, you can execute it.
+
+            Answer the $USER_REQUEST;
+
+            Once you are ready to provide a response, follow the steps bellow to do so:
+            1. If you have made any modifications to files, add them using 'git add .' IMPORTANT: do not add response.md file.
+            2. Commit the changes with a descriptive message using 'git commit -m "your commit message"'.
+            3. Push the changes to the branch using 'git push'.
+            4. Writing your response to a file: write_file("response.md", "<your response here>")
+            5. Posting the response: gh pr comment $PR_NUMBER --body-file response.md --repo $REPOSITORY
