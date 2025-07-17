@@ -102,7 +102,7 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Run Gemini PR Review
-        uses: google-gemini/gemini-cli-action@main
+        uses: ./
         env:
           GITHUB_TOKEN: ${{ steps.generate_token.outputs.token }}
           GH_TOKEN:  ${{ steps.generate_token.outputs.token || secrets.GITHUB_TOKEN }}
