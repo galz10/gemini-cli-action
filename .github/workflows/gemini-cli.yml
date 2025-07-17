@@ -134,11 +134,17 @@ jobs:
 
             If the $USER_REQUEST is asking to generate code or modify code, create a plan on what you will do to answer the request, IMPORTANT: Do not implement without approval from the user. 
             Make sure the plan at the bottom has text letting the user know how to approve the plan, for example @gemini-cli plan#1 approved.
+            
             The plan will follow this format in markdown :
               plan-id: number 
               Plan Title :
               ...
               How to approve the plan 
+
+            After you created the plan follow the steps bellow:
+            1. Writing your response to a file: write_file("response.md", "<your response here>")
+            2. Posting the response: gh pr comment $PR_NUMBER --body-file response.md --repo $REPOSITORY
+            3. You may exit now, the request is complete. 
             
             If the $USER_REQUEST is a plan approval, for example @gemini-cli plan#1 approved, you will need to get the plan from the PR comments.
             To do so, you will need to get the comments from the PR and find the comment with the plan id.
