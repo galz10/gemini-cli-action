@@ -1,0 +1,21 @@
+name: "Gemini CLI - Weather"
+
+on:
+  workflow_dispatch:
+    inputs:
+      city:
+        description: 'The city to get the weather for'
+        required: true
+        default: 'Tel Aviv'
+
+jobs:
+  weather:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get Weather
+        uses: ./
+        with:
+          command: "what is the weather in ${{ github.event.inputs.city }}"
