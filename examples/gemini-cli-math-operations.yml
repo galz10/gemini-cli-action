@@ -1,0 +1,15 @@
+name: gemini-cli-math-operations
+on:
+  workflow_dispatch:
+
+jobs:
+  math_operations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Run Gemini CLI
+        uses: ./
+        with:
+          USER_REQUEST: "what is 2 + 2?"

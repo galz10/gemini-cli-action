@@ -1,68 +1,102 @@
 # Gemini CLI Action
 
-Automate software development tasks within your GitHub repositories with [Gemini CLI](https://github.com/google-gemini/gemini-cli). 
+The Gemini CLI Action is a powerful GitHub Action that brings the capabilities of the Gemini CLI into your software development workflows. It allows you to automate various tasks, such as code generation, bug fixing, and answering questions, by simply interacting with it through PR comments.
 
-You can interact with Gemini by mentioning it in pull request comments and issues to perform tasks like code generation, analysis, and modification.
+## Key Features
 
-## Features
-
-- **Comment-based Interaction**: Trigger workflows in issue and pull request comments.
-- **Automated Issue Management**: Automatically triage issues by applying labels based on issue content.
-- **Extensible with Tools**: Leverage Gemini's tool-calling capabilities to interact with other CLIs like the `gh` CLI for powerful automations.
-- **Customizable**: Use a `GEMINI.md` file in your repository to provide project-specific instructions and context to Gemini.
+- **Comment-based Interaction**: Trigger the Gemini CLI by mentioning `@gemini-cli` in your PR comments.
+- **Automated Issue Management**: Automatically triage and label issues based on their content.
+- **Extensible with Tools**: The action can be extended with custom tools to perform specific tasks.
+- **Customizable Behavior**: Use a `GEMINI.md` file to define custom instructions and context for the Gemini CLI.
 
 ## Getting Started
 
-Before using this action, you need to:
+To use the Gemini CLI Action, you need to have a Gemini API Key. You can get one from [Google AI Studio](https://aistudio.google.com/app/apikey).
 
-1.  **Get a Gemini API Key**: Obtain your API key from [Google AI Studio](https://aistudio.google.com/apikey).
-2.  **Add it as a GitHub Secret**: Store your API key as a secret in your repository with the name `GEMINI_API_KEY`. For more information, see the [official GitHub documentation on creating and using encrypted secrets](https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions).
+Once you have your API key, you need to add it as a secret to your GitHub repository. The secret should be named `GEMINI_API_KEY`.
 
-## Usage and Examples
+## Usage
 
-To use this action, create a workflow file in your repository (e.g., `.github/workflows/gemini.yml`). 
+To use the action, you need to create a workflow file in your repository (e.g., `.github/workflows/gemini.yml`). Here is an example of a workflow that runs the Gemini CLI on every PR comment:
 
-The best way to get started is to copy one of the pre-built workflows from the [`/examples`](./examples) directory into your project's `.github/workflows` folder and customize it.
+```yaml
+name: Gemini CLI
+on:
+  issue_comment:
+    types:
+      - created
 
-See the sections below for specific examples.
+jobs:
+  gemini:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-## Issue Triage
+      - name: Run Gemini CLI
+        uses: ./
+        with:
+          USER_REQUEST: ${{ github.event.comment.body }}
+```
 
-This action can be used to triage GitHub issues automatically or on a schedule. For a detailed guide on how to set up the issue triage system, please see the [**Issue Triage documentation**](./docs/issue-triage.md).
-
-## Pull Request Review
-
-This action can be used to automatically review pull requests when they are opened, synchronized, or reopened. Additionally, users with `OWNER`, `MEMBER`, or `COLLABORATOR` permissions can trigger a review by commenting `@gemini-cli /review` in a pull request.
-
-For a detailed guide on how to set up the pull request review system, please see the [**Pull Request Review documentation**](./docs/pr-review.md).
+You can find more examples in the [`/examples`](/examples) directory:
+- [`gemini-cli.yml`](/examples/gemini-cli.yml)
+- [`gemini-cli-random-joke.yml`](/examples/gemini-cli-random-joke.yml)
+- [`gemini-cli-current-time.yml`](/examples/gemini-cli-current-time.yml)
+- [`gemini-cli-math-operations.yml`](/examples/gemini-cli-math-operations.yml)
+- [`gemini-issue-automated-triage.yml`](/examples/gemini-issue-automated-triage.yml)
+- [`gemini-issue-scheduled-triage.yml`](/examples/gemini-issue-scheduled-triage.yml)
+- [`gemini-pr-review.yml`](/examples/gemini-pr-review.yml)
 
 ## Configuration
 
-This action is configured via inputs in your workflow file. For detailed information on all available inputs, including the `version` input (which supports executing from npm, a branch, or a commit hash), and advanced configuration options using `settings_json`, please see the [**Configuration documentation**](./docs/configuration.md).
+The Gemini CLI Action can be configured with the following inputs:
+
+| Input | Description | Required |
+| --- | --- | --- |
+| `USER_REQUEST` | The user's request to the Gemini CLI. | Yes |
+| `GEMINI_API_KEY` | Your Gemini API key. | Yes |
+| `GITHUB_TOKEN` | The GitHub token to use for authentication. | No (defaults to `github.token`) |
+| `GEMINI_MODEL` | The Gemini model to use. | No (defaults to `gemini-1.5-flash`) |
+| `TOP_K` | The top-k value to use for the Gemini model. | No (defaults to `1`) |
+| `TOP_P` | The top-p value to use for the Gemini model. | No (defaults to `1`) |
+| `TEMPERATURE` | The temperature value to use for the Gemini model. | No (defaults to `1`) |
+| `MAX_OUTPUT_TOKENS` | The maximum number of output tokens to generate. | No (defaults to `2048`) |
 
 ## Authentication
 
-This action requires a GitHub token to interact with the GitHub API. You can authenticate in two ways:
+The Gemini CLI Action can be authenticated with a GitHub App or with the default `GITHUB_TOKEN`.
 
-1.  **Custom GitHub App (Recommended):** For the most secure and flexible authentication, we recommend creating a custom GitHub App.
-2.  **Default `GITHUB_TOKEN`:** For simpler use cases, the action can use the default `GITHUB_TOKEN` provided by the workflow.
+### GitHub App (Recommended)
 
-For a detailed guide on how to set up authentication, including creating a custom app and the required permissions, please see the [**Authentication documentation**](./docs/github-app.md).
+Using a GitHub App is the recommended way to authenticate the Gemini CLI Action. This is because it allows you to grant the action specific permissions, rather than giving it full access to your repository.
 
-## Observability with OpenTelemetry
+To learn how to create a GitHub App and use it to authenticate the Gemini CLI Action, see the [GitHub App authentication guide](/docs/github-app.md).
 
-This action can be configured to send telemetry data (traces, metrics, and logs) to your own Google Cloud project. This allows you to monitor the performance and behavior of the Gemini CLI within your workflows, providing valuable insights for debugging and optimization.
+### GITHUB_TOKEN
 
-For detailed instructions on how to set up and configure observability, please see the [Observability documentation](./docs/observability.md).
+You can also authenticate the Gemini CLI Action with the default `GITHUB_TOKEN`. However, this is not recommended as it gives the action full access to your repository.
 
-### Google Cloud Authentication
+## Observability
 
-To use observability features with Google Cloud, you'll need to set up Workload Identity Federation. For detailed setup instructions, see the [Workload Identity Federation documentation](./docs/workload-identity.md).
+The Gemini CLI Action supports OpenTelemetry for sending telemetry data to Google Cloud. This allows you to monitor the performance of the action and troubleshoot any issues that may arise.
+
+To learn how to configure observability for the Gemini CLI Action, see the [observability guide](/docs/observability.md).
+
+## Workload Identity Federation
+
+The Gemini CLI Action uses Workload Identity Federation to authenticate with Google Cloud. This allows the action to access Google Cloud resources without having to store any credentials in GitHub.
+
+To learn how to set up Workload Identity Federation for the Gemini CLI Action, see the [Workload Identity Federation guide](/docs/workload-identity.md).
 
 ## Customization
 
-Create a `GEMINI.md` file in the root of your repository to provide project-specific context and instructions to Gemini. This is useful for defining coding conventions, architectural patterns, or other guidelines the model should follow.
+You can customize the behavior of the Gemini CLI by creating a `GEMINI.md` file in the root of your repository. This file can be used to define custom instructions and context for the Gemini CLI.
 
 ## Contributing
 
-Contributions are welcome! Please see our [**Contributing Guide**](./CONTRIBUTING.md) for more details on how to get started.
+Contributions are welcome! Please see the [contributing guide](/CONTRIBUTING.md) for more information.
+
+## License
+
+The Gemini CLI Action is licensed under the [MIT License](/LICENSE).
