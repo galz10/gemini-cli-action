@@ -135,7 +135,6 @@ jobs:
             If the $USER_REQUEST is asking to generate code or modify code, create a plan on what you will do to answer the request, IMPORTANT: Do not implement without approval from the user. 
             Make sure the plan at the bottom has text letting the user know how to approve the plan, for example @gemini-cli plan#1 approved. The plan-id should be a random UUID.
             To find the plan-id number for this new plan run `gh pr view $PR_NUMBER --json comments -q '.comments[] | .body'` and find the last comment with `plan-id: number`. 
-            The plan-id for the new plan should be +1 from the plan-id of the last comment if no comment exists with plan-id the plan-id should be 1.
             
             The plan will follow this format in markdown :
               plan-id: number 
@@ -150,9 +149,9 @@ jobs:
             
             If the $USER_REQUEST is a plan approval, for example @gemini-cli plan#1 approved, you will need to get the plan from the PR comments.
             To do so, you will need to get the comments from the PR and find the comment with the plan id.
-            1. Get the plan id from the user request. For example, if the user request is "@gemini-cli plan#1 approved", the plan id is 1.
+            1. Get the plan id from the user request. For example, if the user request is "@gemini-cli plan#123 approved", the plan id is 123.
             2. Get the comments from the PR by running the following command: `gh pr view $PR_NUMBER --json comments -q '.comments[] | .body'`
-            3. Find the comment that contains `plan-id: 1` (using the plan id from the previous step).
+            3. Find the comment that contains `plan-id: 123` (using the plan id from the previous step).
             4. Once you have the plan, you can execute it.
 
             Answer the $USER_REQUEST;
